@@ -1,0 +1,15 @@
+services:
+  nosync:
+    image: ghcr.io/exchanges-lab/nosync:v1.0
+    container_name: nosync
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+    networks:
+      - cycle
+    restart: unless-stopped
+
+networks:
+  cycle:
+    external: true
