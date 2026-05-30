@@ -6,9 +6,12 @@ edition = "2024"
 [dependencies]
 alloy = "2.0.5"
 anyhow = "1.0.102"
+chrono = { version = "0.4.44", features = ["serde"] }
 dotenvy = "0.15.7"
 hyperliquid_rust_sdk = { git = "https://github.com/hyperliquid-dex/hyperliquid-rust-sdk.git" }
 notion-client = { git = "https://github.com/takassh/notion-client.git" }
+reqwest = "0.13.4"
+serde_json = "1.0.150"
 thiserror = "2.0.18"
 tokio = { version = "1.52.3", features = ["full"] }
 tracing = "0.1.44"

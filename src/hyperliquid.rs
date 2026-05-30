@@ -202,6 +202,7 @@ impl HyperliquidMonitor {
                                         sz: format!("{:.5}", state.accumulated_sz),
                                         time: state.time,
                                         tid: state.tid,
+                                        oid,
                                         action: TradeAction::Open,
                                         start_pos: "0.0".to_string(),
                                         end_pos: format!("{:.5}", state.accumulated_sz),

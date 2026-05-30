@@ -2969,9 +2969,12 @@ version = "0.1.0"
 dependencies = [
  "alloy 2.0.5",
  "anyhow",
+ "chrono",
  "dotenvy",
  "hyperliquid_rust_sdk",
  "notion-client",
+ "reqwest 0.13.4",
+ "serde_json",
  "thiserror 2.0.18",
  "tokio",
  "tracing",
