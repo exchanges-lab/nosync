@@ -48,9 +48,12 @@ async fn main() -> Result<()> {
             side = %event.side,
             px = %event.px,
             sz = %event.sz,
+            action = ?event.action,
+            start_pos = %event.start_pos,
+            end_pos = %event.end_pos,
             time = event.time,
             tid = event.tid,
-            "Captured position opening event!"
+            "Captured position trade event!"
         );
         // Notion database integration will be wired here in the future
     }

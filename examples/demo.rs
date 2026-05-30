@@ -28,11 +28,19 @@ async fn main() -> Result<()> {
         }
     });
 
-    info!("Listening for position open events. Close with Ctrl+C...");
+    info!("Listening for position trade events. Close with Ctrl+C...");
     while let Some(event) = rx.recv().await {
         info!(
-            "DEMO RECEIVED POSITION OPEN: coin={}, side={}, px={}, sz={}, time={}, tid={}",
-            event.coin, event.side, event.px, event.sz, event.time, event.tid
+            "DEMO RECEIVED POSITION TRADE: coin={}, side={}, px={}, sz={}, action={:?}, start_pos={}, end_pos={}, time={}, tid={}",
+            event.coin,
+            event.side,
+            event.px,
+            event.sz,
+            event.action,
+            event.start_pos,
+            event.end_pos,
+            event.time,
+            event.tid
         );
     }
 

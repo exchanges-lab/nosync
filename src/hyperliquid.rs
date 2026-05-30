@@ -1,4 +1,4 @@
-use crate::structs::PositionOpenEvent;
+use crate::structs::{PositionTradeEvent, TradeAction};
 use alloy::primitives::Address;
 use hyperliquid_rust_sdk::{BaseUrl, InfoClient, Message, Subscription, UserData};
 use thiserror::Error;
@@ -31,7 +31,7 @@ impl HyperliquidMonitor {
     /// Runs the monitor WebSocket subscription in a loop, reconnecting if disconnected.
     pub async fn run(
         &self,
-        event_tx: UnboundedSender<PositionOpenEvent>,
+        event_tx: UnboundedSender<PositionTradeEvent>,
     ) -> Result<(), HyperliquidMonitorError> {
         let base_url = if self.is_testnet {
             BaseUrl::Testnet
@@ -90,36 +90,54 @@ impl HyperliquidMonitor {
                         debug!(user_msg = ?user_msg, "Received user event message");
                         if let UserData::Fills(fills) = user_msg.data {
                             for fill in fills {
-                                // Check if start_position is 0, which indicates a new position is opening
+                                // Parse position details
                                 let start_pos: f64 = fill.start_position.parse().unwrap_or(0.0);
-                                if start_pos == 0.0 {
-                                    info!(
-                                        coin = %fill.coin,
-                                        side = %fill.side,
-                                        px = %fill.px,
-                                        sz = %fill.sz,
-                                        tid = fill.tid,
-                                        "Position opening detected!"
-                                    );
-                                    let event = PositionOpenEvent {
-                                        coin: fill.coin,
-                                        side: fill.side,
-                                        px: fill.px,
-                                        sz: fill.sz,
-                                        time: fill.time,
-                                        tid: fill.tid,
-                                    };
-                                    if let Err(e) = event_tx.send(event) {
-                                        error!(
-                                            error = ?e,
-                                            "Failed to send PositionOpenEvent through channel"
-                                        );
-                                    }
+                                let sz: f64 = fill.sz.parse().unwrap_or(0.0);
+                                let dir = if fill.side == "B" { 1.0 } else { -1.0 };
+                                let change = dir * sz;
+                                let end_pos = start_pos + change;
+
+                                // Determine the trade action
+                                let action = if start_pos == 0.0 {
+                                    TradeAction::Open
+                                } else if end_pos == 0.0 {
+                                    TradeAction::Close
+                                } else if start_pos.signum() != end_pos.signum() {
+                                    TradeAction::Decrease
+                                } else if end_pos.abs() > start_pos.abs() {
+                                    TradeAction::Increase
                                 } else {
-                                    debug!(
-                                        coin = %fill.coin,
-                                        start_pos = start_pos,
-                                        "Ignore non-opening trade fill"
+                                    TradeAction::Decrease
+                                };
+
+                                info!(
+                                    coin = %fill.coin,
+                                    side = %fill.side,
+                                    px = %fill.px,
+                                    sz = %fill.sz,
+                                    action = ?action,
+                                    start_pos = start_pos,
+                                    end_pos = end_pos,
+                                    tid = fill.tid,
+                                    "Wallet trade fill detected!"
+                                );
+
+                                let event = PositionTradeEvent {
+                                    coin: fill.coin,
+                                    side: fill.side,
+                                    px: fill.px,
+                                    sz: fill.sz,
+                                    time: fill.time,
+                                    tid: fill.tid,
+                                    action,
+                                    start_pos: fill.start_position.clone(),
+                                    end_pos: format!("{:.5}", end_pos),
+                                };
+
+                                if let Err(e) = event_tx.send(event) {
+                                    error!(
+                                        error = ?e,
+                                        "Failed to send PositionTradeEvent through channel"
                                     );
                                 }
                             }
