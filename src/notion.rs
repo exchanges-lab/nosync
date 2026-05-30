@@ -161,20 +161,7 @@ impl NotionWriter {
             },
         );
 
-        // 9. Level (Select column)
-        properties.insert(
-            "Level".to_string(),
-            PageProperty::Select {
-                id: None,
-                select: Some(SelectPropertyValue {
-                    id: None,
-                    name: Some(data.level),
-                    color: None,
-                }),
-            },
-        );
-
-        // 10. Order Type (Select column)
+        // 9. Order Type (Select column)
         properties.insert(
             "Order Type".to_string(),
             PageProperty::Select {

@@ -75,8 +75,7 @@ async fn main() -> Result<()> {
         let px: f64 = event.px.parse().unwrap_or(0.0);
         let usd_val = sz * px;
 
-        // Calculate Level and Determine Order Type using NotionRowData helpers
-        let level_str = NotionRowData::calculate_level(usd_val);
+        // Determine Order Type using NotionRowData helper
         let order_type_str = NotionRowData::determine_order_type(event.crossed);
 
         info!(
@@ -85,7 +84,6 @@ async fn main() -> Result<()> {
             px = %event.px,
             sz = %event.sz,
             usd_val = %format!("{:.2}", usd_val),
-            level = %level_str,
             order_type = %order_type_str,
             oid = event.oid,
             "Captured position open event, writing to Notion..."
@@ -102,7 +100,6 @@ async fn main() -> Result<()> {
             time: event.time,
             order_id: event.oid,
             check: false,
-            level: level_str,
             order_type: order_type_str,
         };
 
