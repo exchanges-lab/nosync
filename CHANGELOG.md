@@ -5,6 +5,8 @@
 
 ## [Unreleased]
 ### Added
+- 支持 `Level` 字段的对数步进（Logarithmic Scaling）计算（USD开仓金额 $2.5 \implies$ level 0, $5.0 \implies$ level 1, $10.0 \implies$ level 2, 以此类推），并添加完整单元测试。
+- 支持根据 `crossed` 属性自动映射 `Order Type` 类型（`MARKET` / `LIMIT`）写入 Notion 数据库。
 - 实现 `NotionWriter` 模块，支持将格式化交易记录批量写入 Notion 数据库。
 - 实现 `HyperliquidMonitor` 针对同一订单（`oid`）在 500 毫秒内的多成交 tick 聚合功能，防止拆单造成多笔重复写入。
 - 定义 `NotionRowData` 与 `TradeAction` 结构，提供结构化的 Notion 写入数据模型。
