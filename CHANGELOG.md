@@ -5,7 +5,6 @@
 
 ## [Unreleased]
 ### Added
-- 支持 `Level` 字段的对数步进（Logarithmic Scaling）计算（USD开仓金额 $2.5 \implies$ level 0, $5.0 \implies$ level 1, $10.0 \implies$ level 2, 以此类推），并添加完整单元测试。
 - 支持根据 `crossed` 属性自动映射 `Order Type` 类型（`MARKET` / `LIMIT`）写入 Notion 数据库。
 - 实现 `NotionWriter` 模块，支持将格式化交易记录批量写入 Notion 数据库。
 - 实现 `HyperliquidMonitor` 针对同一订单（`oid`）在 500 毫秒内的多成交 tick 聚合功能，防止拆单造成多笔重复写入。
@@ -17,6 +16,7 @@
 - 添加外部参考库作为 Git 子模块：`noc` (notion-client) 与 `hype` (hyperliquid-rust-sdk)。
 
 ### Changed
+- 移除 `Level` 字段的相关计算与 Notion 写入逻辑（交由用户后续手动设置）。
 - 重构 `src/main.rs`，实现从 Hyperliquid WebSocket 捕获开仓事件并自动格式化写入 Notion Database 的闭环服务。
 - 将 `hyperliquid_rust_sdk` 与 `notion-client` 依赖方式更改为指向官方 Git 仓库的远程依赖，移除本地 Path 依赖。
 
