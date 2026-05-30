@@ -1,16 +1,15 @@
 # nosync
 
-一款高效、解耦的异步消息处理与任务编排框架。
+一款高效、解耦的 Hyperliquid 钱包仓位监听与 Notion 同步工具。
 
 ## 1. 项目简介
-`nosync` 是一个高性能的 Rust 异步消息处理和组件协作框架，专为解决多模块间松耦合通信、结构化日志追踪以及鲁棒的错误恢复机制而设计。它主要面向需要高并发、低延迟以及强模块化设计的服务端开发人员，为构建复杂微服务或本地计算引擎提供核心底座。
+`nosync` 是一个基于 Rust 构建的实时钱包仓位监控与分析工具。它通过 WebSocket 订阅指定的 Hyperliquid 钱包地址事件，实时抓取开仓（及后续平仓）交易，并将相关交易数据自动同步整理到 Notion 对应的数据库中，帮助用户进行自动化交易跟踪与统计。
 
 ## 2. 核心功能
-* **模块化封装架构**：遵循面向对象设计原则，将组件封装为高内聚的 `pub struct` 并持有独立状态，杜绝全局可变状态与裸函数。
-* **异步事件处理**：全面支持基于 `tokio` 运行时的多任务处理，提升高负载场景下的吞吐量。
-* **结构化日志监控**：集成 `tracing` 系统，提供细粒度的业务追踪与故障还原能力。
-* **强类型错误管理**：利用 `thiserror` 定义清晰的组件级错误，拒绝吞掉异常，确保系统的健壮性。
-* **多环境适配能力**：天然支持通过 `.env` 文件和环境变量在运行时动态配置系统属性。
+* **实时钱包订阅**：使用 `hyperliquid-rust-sdk` 长连接订阅钱包的 `UserEvents` 变动，毫秒级感知仓位变化。
+* **开仓事件识别**：通过解析成交明细的 `start_position` 是否为零，精准捕捉首次开仓（Position Opening）动作。
+* **断线自动重连**：内部包含 robust 的重连与容错机制，确保网络抖动或服务关闭重启后自动恢复订阅。
+* **Notion 数据同步**：集成 `notion-client` API，将捕捉到的开仓事件格式化为对应的属性并写入 Notion 数据库中（Notion 数据库结构由后续接口配置定义）。
 
 ## 3. 架构与模块
 本项目的目录结构与模块划分如下：
@@ -18,30 +17,26 @@
 ```
 nosync/
 ├── src/
-│   ├── lib.rs          # 库入口，统一导出公共接口与类型
-│   ├── structs.rs      # 存放跨模块共享的纯数据结构
-│   ├── module_a.rs     # 业务模块 A (消息接收与底层处理)
-│   └── module_b.rs     # 业务模块 B (工作流编排与核心控制)
+│   ├── lib.rs          # 统一模块导出
+│   ├── structs.rs      # 数据模型与事件定义（如 PositionOpenEvent）
+│   └── hyperliquid.rs  # Hyperliquid 监听器实现（包含 HyperliquidMonitor）
 ├── examples/           # 使用示例
-│   └── demo.rs         # 核心运行演示
+│   └── demo.rs         # 实时钱包监听演示
 ├── tests/              # 集成测试
-│   ├── module_a_test.rs
-│   └── module_b_test.rs
-├── references/         # Git 子模块与外部参考仓库目录
-├── .env                # 实际运行环境变量配置文件 (本地开发，不提交)
+│   └── monitor_test.rs # 监听器连通性与重连循环测试
+├── references/         # 本地参考源（submodules）
+├── .env                # 本地运行环境变量配置文件 (不提交)
 ├── .env.example        # 环境变量配置模板
-├── Cargo.toml          # Cargo 配置文件
+├── Cargo.toml          # 远程 Git 依赖及配置
 └── CHANGELOG.md        # 变更日志
 ```
 
-* **ModuleA** (`ModuleA`)：负责消息接收、数据有效性校验与核心的异步解析处理。
-* **ModuleB** (`ModuleB`)：负责编排 `ModuleA` 的执行流，充当协调器（Orchestrator）角色。
-* **Structs** (`structs`)：定义了消息体 `SharedMessage` 等公共数据契约。
+* **HyperliquidMonitor** (`hyperliquid`)：长周期运行服务，维护与 Hyperliquid API 的长连接，订阅 `UserEvents`。
+* **PositionOpenEvent** (`structs`)：定义了捕获到的开仓事件明细，包括币种、买卖方向、成交价格、数量、时间戳等。
 
 ## 4. 环境要求
 * **Rust**: `1.85.0` 或更高版本（支持最新 edition 2024）
 * **OS**: Linux, macOS, Windows
-* **运行时**: `tokio` (Full features)
 
 ## 5. 安装与启动
 ```bash
@@ -51,38 +46,38 @@ cd nosync
 
 # 复制并配置环境变量
 cp .env.example .env
-# 可以根据需要修改 .env 中的内容
+# 编辑 .env 文件，填入您需要监控的 WALLET_ADDRESS 及网络类型
 
 # 构建项目
 cargo build --release
 
-# 运行默认二进制应用
+# 运行监控服务
 cargo run
 
-# 运行使用示例
+# 运行本地监听 Demo
 cargo run --example demo
 ```
 
 ## 6. 使用示例
 最小可运行示例位于 [examples/demo.rs](file:///home/cathiefish/App/nosync/examples/demo.rs)：
 ```rust
-use anyhow::Result;
-use nosync::{ModuleA, ModuleB};
-use tracing_subscriber::{EnvFilter, FmtSubscriber};
+use alloy::primitives::address;
+use nosync::HyperliquidMonitor;
+use tokio::sync::mpsc;
 
 #[tokio::main]
-async fn main() -> Result<()> {
-    let subscriber = FmtSubscriber::builder()
-        .with_env_filter(EnvFilter::new("info"))
-        .finish();
-    tracing::subscriber::set_global_default(subscriber)?;
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let wallet = address!("0xc64cc00b46101bd40aa1c3121195e85c0b0918d8");
+    let monitor = HyperliquidMonitor::new(wallet, true); // true 代表使用 Testnet
 
-    // 初始化核心组件
-    let processor = ModuleA::new("example-processor".to_string())?;
-    let orchestrator = ModuleB::new(processor)?;
+    let (tx, mut rx) = mpsc::unbounded_channel();
+    tokio::spawn(async move {
+        let _ = monitor.run(tx).await;
+    });
 
-    // 运行工作流
-    orchestrator.run().await?;
+    while let Some(event) = rx.recv().await {
+        println!("Captured Position Opening Event: {:?}", event);
+    }
     Ok(())
 }
 ```
@@ -90,13 +85,14 @@ async fn main() -> Result<()> {
 ## 7. 环境变量说明
 | 环境变量名 | 用途 | 是否必填 | 默认值 / 示例值 |
 | :--- | :--- | :--- | :--- |
-| `APP_NAME` | 应用程序或当前节点的名称标识，用于日志和初始化 | 否 | `nosync-default` |
-| `RUST_LOG` | 设定日志输出级别 (e.g. error, warn, info, debug, trace) | 否 | `info` |
+| `WALLET_ADDRESS` | 需要监控的以太坊/Hyperliquid钱包地址 | **是** | `0xc64cc00b46101bd40aa1c3121195e85c0b0918d8` |
+| `IS_TESTNET` | 是否是 Testnet 环境 (`true`/`false`) | 否 | `true` |
+| `RUST_LOG` | 设定日志输出级别 (e.g. error, warn, info, debug) | 否 | `info` |
 
 ## 8. 测试与开发
 ### 开发分支约定
 * `dev`：主开发分支，新功能与修复首发合并至此。
-* `main`：生产稳定分支，当且仅当测试、Clippy 与格式化全部通过后才合并。
+* `main`：生产稳定分支。
 
 ### 本地验证命令
 在提交代码前，**必须**运行以下命令进行本地验证：
@@ -104,12 +100,12 @@ async fn main() -> Result<()> {
 # 自动格式化代码
 cargo fmt --all
 
-# 运行代码规范检查（不能有 warnings）
+# 运行代码规范检查
 cargo clippy --all-targets --all-features -- -D warnings
 
-# 执行单元测试与集成测试
+# 执行集成测试
 cargo test
 ```
 
 ## 9. 变更日志指引
-关于项目的历史演进和每个版本的详细改动，请参阅 [CHANGELOG.md](file:///home/cathiefish/App/nosync/CHANGELOG.md)。
+关于项目的详细改动，请参阅 [CHANGELOG.md](file:///home/cathiefish/App/nosync/CHANGELOG.md)。

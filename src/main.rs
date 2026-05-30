@@ -1,8 +1,9 @@
 use anyhow::{Context, Result};
 use dotenvy::dotenv;
-use nosync::{ModuleA, ModuleB};
+use nosync::HyperliquidMonitor;
 use std::env;
-use tracing::info;
+use tokio::sync::mpsc;
+use tracing::{error, info};
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
 #[tokio::main]
@@ -10,29 +11,49 @@ async fn main() -> Result<()> {
     // Load environment variables from .env if present
     let _ = dotenv();
 
-    // Initialize tracing subscriber with settings from environment (RUST_LOG)
+    // Initialize tracing subscriber
     let subscriber = FmtSubscriber::builder()
         .with_env_filter(EnvFilter::from_default_env())
         .finish();
     tracing::subscriber::set_global_default(subscriber)
         .map_err(|e| anyhow::anyhow!("failed to set global tracing subscriber: {e}"))?;
 
-    info!("Starting nosync application...");
+    info!("Starting Hyperliquid Monitor Service...");
 
-    // Retrieve APP_NAME from environment variables, defaulting if not found
-    let app_name = env::var("APP_NAME").unwrap_or_else(|_| "nosync-default".to_string());
-    info!(app_name = %app_name, "Environment configured");
+    // Retrieve WALLET_ADDRESS from environment
+    let wallet_str =
+        env::var("WALLET_ADDRESS").context("Missing WALLET_ADDRESS in environment variables")?;
+    let wallet = wallet_str
+        .parse::<alloy::primitives::Address>()
+        .map_err(|e| anyhow::anyhow!("Invalid WALLET_ADDRESS: {e}"))?;
 
-    // Initialize ModuleA and ModuleB
-    let module_a = ModuleA::new(app_name).context("Failed to initialize ModuleA")?;
-    let module_b = ModuleB::new(module_a).context("Failed to initialize ModuleB")?;
+    // Retrieve IS_TESTNET from environment, defaulting to true if not set
+    let is_testnet_str = env::var("IS_TESTNET").unwrap_or_else(|_| "true".to_string());
+    let is_testnet = is_testnet_str.parse::<bool>().unwrap_or(true);
 
-    // Run ModuleB logic
-    module_b
-        .run()
-        .await
-        .context("Error occurred during execution")?;
+    let monitor = HyperliquidMonitor::new(wallet, is_testnet);
+    let (tx, mut rx) = mpsc::unbounded_channel();
 
-    info!("nosync application finished successfully!");
+    // Spawn the monitor loop in the background
+    tokio::spawn(async move {
+        if let Err(e) = monitor.run(tx).await {
+            error!("Monitor runtime error: {:?}", e);
+        }
+    });
+
+    info!("Service running, waiting for wallet events...");
+    while let Some(event) = rx.recv().await {
+        info!(
+            coin = %event.coin,
+            side = %event.side,
+            px = %event.px,
+            sz = %event.sz,
+            time = event.time,
+            tid = event.tid,
+            "Captured position opening event!"
+        );
+        // Notion database integration will be wired here in the future
+    }
+
     Ok(())
 }

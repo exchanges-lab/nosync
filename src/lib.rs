@@ -1,7 +1,5 @@
-pub mod module_a;
-pub mod module_b;
+pub mod hyperliquid;
 pub mod structs;
 
-pub use module_a::{ModuleA, ModuleAError};
-pub use module_b::{ModuleB, ModuleBError};
-pub use structs::SharedMessage;
+pub use hyperliquid::{HyperliquidMonitor, HyperliquidMonitorError};
+pub use structs::PositionOpenEvent;
