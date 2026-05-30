@@ -4,6 +4,8 @@
 格式遵循 Keep a Changelog，版本号遵循 SemVer。
 
 ## [Unreleased]
+### Added
+- 添加外部参考库作为 Git 子模块：`noc` (notion-client) 与 `hype` (hyperliquid-rust-sdk)
 
 ## [0.1.0] - 2026-05-30
 ### Added

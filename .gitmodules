@@ -1,0 +1,6 @@
+[submodule "references/noc"]
+	path = references/noc
+	url = https://github.com/takassh/notion-client.git
+[submodule "references/hype"]
+	path = references/hype
+	url = https://github.com/hyperliquid-dex/hyperliquid-rust-sdk.git
