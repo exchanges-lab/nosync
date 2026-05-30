@@ -53,15 +53,6 @@ async fn main() -> Result<()> {
 
     info!("Service running. Monitoring position openings and writing to Notion...");
     while let Some(event) = rx.recv().await {
-        info!(
-            coin = %event.coin,
-            side = %event.side,
-            px = %event.px,
-            sz = %event.sz,
-            oid = event.oid,
-            "Captured position open event, writing to Notion..."
-        );
-
         // Format Date/Time to "YYYY/MM/DD HH:MM"
         let dt = Utc
             .timestamp_millis_opt(event.time as i64)
@@ -79,6 +70,27 @@ async fn main() -> Result<()> {
             "Short".to_string()
         };
 
+        // Parse quantity and price to calculate USD value
+        let sz: f64 = event.sz.parse().unwrap_or(0.0);
+        let px: f64 = event.px.parse().unwrap_or(0.0);
+        let usd_val = sz * px;
+
+        // Calculate Level and Determine Order Type using NotionRowData helpers
+        let level_str = NotionRowData::calculate_level(usd_val);
+        let order_type_str = NotionRowData::determine_order_type(event.crossed);
+
+        info!(
+            coin = %event.coin,
+            side = %event.side,
+            px = %event.px,
+            sz = %event.sz,
+            usd_val = %format!("{:.2}", usd_val),
+            level = %level_str,
+            order_type = %order_type_str,
+            oid = event.oid,
+            "Captured position open event, writing to Notion..."
+        );
+
         // Construct Notion Row Data
         let row = NotionRowData {
             symbol: symbol_formatted,
@@ -90,6 +102,8 @@ async fn main() -> Result<()> {
             time: event.time,
             order_id: event.oid,
             check: false,
+            level: level_str,
+            order_type: order_type_str,
         };
 
         // Write row to Notion

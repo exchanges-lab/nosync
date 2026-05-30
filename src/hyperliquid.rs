@@ -93,6 +93,7 @@ impl HyperliquidMonitor {
                 accumulated_px_sz: f64,
                 time: u64,
                 tid: u64,
+                crossed: bool,
             }
 
             let mut active_opening_orders =
@@ -122,6 +123,7 @@ impl HyperliquidMonitor {
                                                         accumulated_px_sz: px * sz,
                                                         time: fill.time,
                                                         tid: fill.tid,
+                                                        crossed: fill.crossed,
                                                     });
                                                     info!(
                                                         coin = %fill.coin,
@@ -206,6 +208,7 @@ impl HyperliquidMonitor {
                                         action: TradeAction::Open,
                                         start_pos: "0.0".to_string(),
                                         end_pos: format!("{:.5}", state.accumulated_sz),
+                                        crossed: state.crossed,
                                     };
 
                                     if let Err(e) = event_tx.send(event) {
