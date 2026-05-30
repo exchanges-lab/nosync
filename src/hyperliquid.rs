@@ -84,73 +84,141 @@ impl HyperliquidMonitor {
 
             info!("Successfully subscribed to UserEvents.");
 
-            while let Some(msg) = ws_receiver.recv().await {
-                match msg {
-                    Message::User(user_msg) => {
-                        debug!(user_msg = ?user_msg, "Received user event message");
-                        if let UserData::Fills(fills) = user_msg.data {
-                            for fill in fills {
-                                // Parse position details
-                                let start_pos: f64 = fill.start_position.parse().unwrap_or(0.0);
-                                let sz: f64 = fill.sz.parse().unwrap_or(0.0);
-                                let dir = if fill.side == "B" { 1.0 } else { -1.0 };
-                                let change = dir * sz;
-                                let end_pos = start_pos + change;
+            let (timeout_tx, mut timeout_rx) = tokio::sync::mpsc::unbounded_channel::<u64>();
 
-                                // Determine the trade action
-                                let action = if start_pos == 0.0 {
-                                    TradeAction::Open
-                                } else if end_pos == 0.0 {
-                                    TradeAction::Close
-                                } else if start_pos.signum() != end_pos.signum() {
-                                    TradeAction::Decrease
-                                } else if end_pos.abs() > start_pos.abs() {
-                                    TradeAction::Increase
-                                } else {
-                                    TradeAction::Decrease
-                                };
+            struct AggregationState {
+                coin: String,
+                side: String,
+                accumulated_sz: f64,
+                accumulated_px_sz: f64,
+                time: u64,
+                tid: u64,
+            }
 
-                                info!(
-                                    coin = %fill.coin,
-                                    side = %fill.side,
-                                    px = %fill.px,
-                                    sz = %fill.sz,
-                                    action = ?action,
-                                    start_pos = start_pos,
-                                    end_pos = end_pos,
-                                    tid = fill.tid,
-                                    "Wallet trade fill detected!"
-                                );
+            let mut active_opening_orders =
+                std::collections::HashMap::<u64, AggregationState>::new();
 
-                                let event = PositionTradeEvent {
-                                    coin: fill.coin,
-                                    side: fill.side,
-                                    px: fill.px,
-                                    sz: fill.sz,
-                                    time: fill.time,
-                                    tid: fill.tid,
-                                    action,
-                                    start_pos: fill.start_position.clone(),
-                                    end_pos: format!("{:.5}", end_pos),
-                                };
+            loop {
+                tokio::select! {
+                    msg = ws_receiver.recv() => {
+                        match msg {
+                            Some(Message::User(user_msg)) => {
+                                debug!(user_msg = ?user_msg, "Received user event message");
+                                if let UserData::Fills(fills) = user_msg.data {
+                                    for fill in fills {
+                                        let start_pos: f64 = fill.start_position.parse().unwrap_or(0.0);
+                                        let sz: f64 = fill.sz.parse().unwrap_or(0.0);
+                                        let px: f64 = fill.px.parse().unwrap_or(0.0);
 
-                                if let Err(e) = event_tx.send(event) {
-                                    error!(
-                                        error = ?e,
-                                        "Failed to send PositionTradeEvent through channel"
-                                    );
+                                        // If it's a new open order or is part of an active opening order
+                                        if start_pos == 0.0 || active_opening_orders.contains_key(&fill.oid) {
+                                            match active_opening_orders.entry(fill.oid) {
+                                                std::collections::hash_map::Entry::Vacant(e) => {
+                                                    // First fill of the opening order: create entry and spawn timeout
+                                                    e.insert(AggregationState {
+                                                        coin: fill.coin.clone(),
+                                                        side: fill.side.clone(),
+                                                        accumulated_sz: sz,
+                                                        accumulated_px_sz: px * sz,
+                                                        time: fill.time,
+                                                        tid: fill.tid,
+                                                    });
+                                                    info!(
+                                                        coin = %fill.coin,
+                                                        side = %fill.side,
+                                                        px = %fill.px,
+                                                        sz = %fill.sz,
+                                                        oid = fill.oid,
+                                                        "New opening order detected, starting aggregation..."
+                                                    );
+
+                                                    let tx = timeout_tx.clone();
+                                                    let oid = fill.oid;
+                                                    tokio::spawn(async move {
+                                                        tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+                                                        let _ = tx.send(oid);
+                                                    });
+                                                }
+                                                std::collections::hash_map::Entry::Occupied(mut e) => {
+                                                    // Subsequent fill of the active opening order: aggregate it
+                                                    let state = e.get_mut();
+                                                    state.accumulated_sz += sz;
+                                                    state.accumulated_px_sz += px * sz;
+                                                    info!(
+                                                        coin = %fill.coin,
+                                                        side = %fill.side,
+                                                        px = %fill.px,
+                                                        sz = %fill.sz,
+                                                        oid = fill.oid,
+                                                        accumulated_sz = %state.accumulated_sz,
+                                                        "Aggregated additional fill for active opening order"
+                                                    );
+                                                }
+                                            }
+                                        } else {
+                                            debug!(
+                                                coin = %fill.coin,
+                                                start_pos = start_pos,
+                                                oid = fill.oid,
+                                                "Ignoring non-opening trade fill"
+                                            );
+                                        }
+                                    }
                                 }
+                            }
+                            Some(Message::HyperliquidError(err_msg)) => {
+                                error!(error = %err_msg, "Received error message from Hyperliquid WS");
+                            }
+                            Some(Message::Pong) => {
+                                debug!("Received Pong from Hyperliquid WS");
+                            }
+                            Some(other) => {
+                                debug!(msg = ?other, "Received other message from Hyperliquid WS");
+                            }
+                            None => {
+                                warn!("Hyperliquid WS receiver closed");
+                                break;
                             }
                         }
                     }
-                    Message::HyperliquidError(err_msg) => {
-                        error!(error = %err_msg, "Received error message from Hyperliquid WS");
-                    }
-                    Message::Pong => {
-                        debug!("Received Pong from Hyperliquid WS");
-                    }
-                    other => {
-                        debug!(msg = ?other, "Received other message from Hyperliquid WS");
+                    oid = timeout_rx.recv() => {
+                        match oid {
+                            Some(oid) => {
+                                if let Some(state) = active_opening_orders.remove(&oid).filter(|s| s.accumulated_sz > 0.0) {
+                                    let avg_px = state.accumulated_px_sz / state.accumulated_sz;
+                                    info!(
+                                        coin = %state.coin,
+                                        side = %state.side,
+                                        avg_px = %avg_px,
+                                        total_sz = %state.accumulated_sz,
+                                        oid = oid,
+                                        "Aggregated opening order completed! Sending event..."
+                                    );
+
+                                    let event = PositionTradeEvent {
+                                        coin: state.coin,
+                                        side: state.side,
+                                        px: format!("{:.5}", avg_px),
+                                        sz: format!("{:.5}", state.accumulated_sz),
+                                        time: state.time,
+                                        tid: state.tid,
+                                        action: TradeAction::Open,
+                                        start_pos: "0.0".to_string(),
+                                        end_pos: format!("{:.5}", state.accumulated_sz),
+                                    };
+
+                                    if let Err(e) = event_tx.send(event) {
+                                        error!(
+                                            error = ?e,
+                                            "Failed to send PositionTradeEvent through channel"
+                                        );
+                                    }
+                                }
+                            }
+                            None => {
+                                break;
+                            }
+                        }
                     }
                 }
             }
