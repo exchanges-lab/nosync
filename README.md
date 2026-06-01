@@ -1,9 +1,9 @@
-# nosync
+# tradesync
 
 An efficient, decoupled Hyperliquid wallet position monitor and Notion database logger.
 
 ## 1. Introduction
-`nosync` is a real-time wallet position monitoring and analysis tool built with Rust. It subscribes to a specified Hyperliquid wallet address via WebSockets, captures position-opening trades in real-time, aggregates multi-tick partial fills of a single order (using a 500ms debounce aggregation mechanism), and automatically synchronizes the formatted trade data to a Notion database.
+`tradesync` is a real-time wallet position monitoring and analysis tool built with Rust. It subscribes to a specified Hyperliquid wallet address via WebSockets, captures position-opening trades in real-time, aggregates multi-tick partial fills of a single order (using a 500ms debounce aggregation mechanism), and automatically synchronizes the formatted trade data to a Notion database.
 
 ## 2. Key Features
 * **Real-time Wallet Subscription**: Uses `hyperliquid-rust-sdk` to establish a persistent WebSocket connection to the wallet's `UserEvents`, sensing position changes at millisecond latency.
@@ -17,7 +17,7 @@ An efficient, decoupled Hyperliquid wallet position monitor and Notion database 
 The directory structure and modules are as follows:
 
 ```
-nosync/
+tradesync/
 ├── src/
 │   ├── lib.rs          # Unified module exports
 │   ├── structs.rs      # Data models and event definitions (e.g., NotionRowData)
@@ -46,8 +46,8 @@ nosync/
 ## 5. Getting Started
 ```bash
 # Clone the repository
-git clone https://github.com/cathiefish/nosync.git
-cd nosync
+git clone https://github.com/cathiefish/tradesync.git
+cd tradesync
 
 # Copy and configure environment variables
 cp .env.example .env
@@ -64,10 +64,10 @@ cargo run --example demo
 ```
 
 ## 6. Code Example
-A minimal running example for the monitor is located at [examples/demo.rs](file:///home/cathiefish/App/nosync/examples/demo.rs):
+A minimal running example for the monitor is located at [examples/demo.rs](file:///home/cathiefish/App/tradesync/examples/demo.rs):
 ```rust
 use alloy::primitives::address;
-use nosync::HyperliquidMonitor;
+use tradesync::HyperliquidMonitor;
 use tokio::sync::mpsc;
 
 #[tokio::main]
@@ -123,4 +123,4 @@ cargo test
 ```
 
 ## 9. Changelog
-For a detailed log of project updates, please refer to [CHANGELOG.md](file:///home/cathiefish/App/nosync/CHANGELOG.md).
+For a detailed log of project updates, please refer to [CHANGELOG.md](file:///home/cathiefish/App/tradesync/CHANGELOG.md).

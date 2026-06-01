@@ -2964,25 +2964,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "nosync"
-version = "0.1.0"
-dependencies = [
- "alloy 2.0.5",
- "anyhow",
- "chrono",
- "dotenvy",
- "hyperliquid_rust_sdk",
- "notion-client",
- "reqwest 0.13.4",
- "serde",
- "serde_json",
- "thiserror 2.0.18",
- "tokio",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
 name = "notion-client"
 version = "1.1.1"
 source = "git+https://github.com/takassh/notion-client.git#6d5c7b94e372e52416a22117afdea1871c98bd3b"
@@ -4768,6 +4749,25 @@ dependencies = [
  "tracing",
  "tracing-core",
  "tracing-log",
+]
+
+[[package]]
+name = "tradesync"
+version = "0.1.0"
+dependencies = [
+ "alloy 2.0.5",
+ "anyhow",
+ "chrono",
+ "dotenvy",
+ "hyperliquid_rust_sdk",
+ "notion-client",
+ "reqwest 0.13.4",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]

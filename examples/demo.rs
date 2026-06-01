@@ -1,6 +1,6 @@
 use alloy::primitives::address;
 use anyhow::Result;
-use nosync::HyperliquidMonitor;
+use tradesync::HyperliquidMonitor;
 use tokio::sync::mpsc;
 use tracing::info;
 use tracing_subscriber::{EnvFilter, FmtSubscriber};

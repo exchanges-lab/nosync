@@ -22,9 +22,11 @@
 - 添加外部参考库作为 Git 子模块：`noc` (notion-client) 与 `hype` (hyperliquid-rust-sdk)。
 
 ### Changed
+- 将项目与 Crate 命名从 `nosync` 统一重命名为 `tradesync`，并同步更新了所有 Rust 源码包导入和 Docker 镜像名称。
+- 更新 Docker Compose 配置，移除了 `tradesnap` 和 `tradesync` （原 `nosync`）多余的 volumes 目录挂载，并统一使用 `:latest` 镜像标签以替代固定版本。
 - 移除 `Level` 字段的相关计算与 Notion 写入逻辑（交由用户后续手动设置）。
 - 重构 `src/main.rs`，实现从 Hyperliquid WebSocket 捕获开仓事件并自动格式化写入 Notion Database 的闭环服务。
-- 将 `hyperliquid_rust_sdk` 与 `notion-client` 依赖方式更改为指向官方 Git 仓库的远程依赖，移除本地 Path 依赖。
+- 将 `hyperliquid_rust_sdk` 与 `notion-client` 依赖方式更改为指向官方 Git 仓库 of 远程依赖，移除本地 Path 依赖。
 
 ### Removed
 - 移除初始化模版中未使用的占位模块 (`ModuleA`, `ModuleB`) 及其对应测试文件。

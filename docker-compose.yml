@@ -1,7 +1,7 @@
 services:
-  nosync:
-    image: ghcr.io/exchanges-lab/nosync:v1.0
-    container_name: nosync
+  tradesync:
+    image: ghcr.io/exchanges-lab/tradesync:latest
+    container_name: tradesync
     env_file:
       - .env
     networks:

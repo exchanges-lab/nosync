@@ -1,5 +1,5 @@
 use alloy::primitives::address;
-use nosync::HyperliquidMonitor;
+use tradesync::HyperliquidMonitor;
 use tokio::sync::mpsc;
 use tokio::time::{Duration, timeout};
 

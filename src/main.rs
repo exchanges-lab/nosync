@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use chrono::{TimeZone, Utc};
 use dotenvy::dotenv;
-use nosync::{HyperliquidMonitor, NotionRowData, NotionWriter};
+use tradesync::{HyperliquidMonitor, NotionRowData, NotionWriter};
 use std::env;
 use tokio::sync::mpsc;
 use tracing::{error, info};
