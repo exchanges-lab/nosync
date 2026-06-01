@@ -95,6 +95,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 | `NOTION_API_KEY` | Notion integration token (internal secret) | **Yes** | `secret_xxxxxx...` |
 | `NOTION_DATABASE_ID` | Notion Database ID | **Yes** | `2b08f81ac37083389c5c01242f3c1557` |
 | `RUST_LOG` | Logging verbosity level (error, warn, info, debug) | No | `info` |
+| `ENABLE_SCREENSHOT` | Enable TradingView chart screenshots in Notion pages (`true`/`false`) | No | `false` |
+| `TRADESNAP_URL` | The API endpoint URL of the TradeSnap service | No | `http://tradesnap:8003` |
+| `BTCUSDT_SNAPSHOT` | Use Binance USDT perps (`true`) instead of USDC perps (`false`) for screenshots | No | `false` |
+| `SYMBOL_15M_SNAPSHOT` | Capture and insert 15m interval screenshot (`true`/`false`) | No | `false` |
+| `SYMBOL_1H_SNAPSHOT` | Capture and insert 1h interval screenshot (`true`/`false`) | No | `false` |
+| `SYMBOL_4H_SNAPSHOT` | Capture and insert 4h interval screenshot (`true`/`false`) | No | `false` |
+| `SYMBOL_1D_SNAPSHOT` | Capture and insert 1D interval screenshot (`true`/`false`) | No | `false` |
+
 
 ## 8. Development & Testing
 ### Git Branching Strategy

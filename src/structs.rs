@@ -64,4 +64,3 @@ mod tests {
         assert_eq!(NotionRowData::determine_order_type(false), "LIMIT");
     }
 }
-

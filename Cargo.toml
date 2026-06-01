@@ -11,6 +11,7 @@ dotenvy = "0.15.7"
 hyperliquid_rust_sdk = { git = "https://github.com/hyperliquid-dex/hyperliquid-rust-sdk.git" }
 notion-client = { git = "https://github.com/takassh/notion-client.git" }
 reqwest = "0.13.4"
+serde = { version = "1.0.218", features = ["derive"] }
 serde_json = "1.0.150"
 thiserror = "2.0.18"
 tokio = { version = "1.52.3", features = ["full"] }

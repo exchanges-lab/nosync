@@ -2974,6 +2974,7 @@ dependencies = [
  "hyperliquid_rust_sdk",
  "notion-client",
  "reqwest 0.13.4",
+ "serde",
  "serde_json",
  "thiserror 2.0.18",
  "tokio",

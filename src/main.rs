@@ -37,10 +37,55 @@ async fn main() -> Result<()> {
     let notion_database_id = env::var("NOTION_DATABASE_ID")
         .context("Missing NOTION_DATABASE_ID in environment variables")?;
 
+    // Retrieve TradeSnap configurations from environment
+    let enable_screenshot_str =
+        env::var("ENABLE_SCREENSHOT").unwrap_or_else(|_| "false".to_string());
+    let enable_screenshot = enable_screenshot_str.parse::<bool>().unwrap_or(false);
+    let tradesnap_url = env::var("TRADESNAP_URL").ok();
+
+    let btcusdt_snapshot = env::var("BTCUSDT_SNAPSHOT")
+        .unwrap_or_else(|_| "false".to_string())
+        .parse::<bool>()
+        .unwrap_or(false);
+
+    let snapshot_15m = env::var("SYMBOL_15M_SNAPSHOT")
+        .or_else(|_| env::var("SYMBOL_15m_SNAPSHOT"))
+        .unwrap_or_else(|_| "false".to_string())
+        .parse::<bool>()
+        .unwrap_or(false);
+
+    let snapshot_1h = env::var("SYMBOL_1H_SNAPSHOT")
+        .or_else(|_| env::var("SYMBOL_1h_SNAPSHOT"))
+        .unwrap_or_else(|_| "false".to_string())
+        .parse::<bool>()
+        .unwrap_or(false);
+
+    let snapshot_4h = env::var("SYMBOL_4H_SNAPSHOT")
+        .or_else(|_| env::var("SYMBOL_4h_SNAPSHOT"))
+        .unwrap_or_else(|_| "false".to_string())
+        .parse::<bool>()
+        .unwrap_or(false);
+
+    let snapshot_1d = env::var("SYMBOL_1D_SNAPSHOT")
+        .or_else(|_| env::var("SYMBOL_1d_SNAPSHOT"))
+        .unwrap_or_else(|_| "false".to_string())
+        .parse::<bool>()
+        .unwrap_or(false);
+
     // Initialize monitor and writer
     let monitor = HyperliquidMonitor::new(wallet, is_testnet);
-    let writer = NotionWriter::new(notion_token, notion_database_id)
-        .context("Failed to initialize NotionWriter")?;
+    let writer = NotionWriter::new(
+        notion_token,
+        notion_database_id,
+        enable_screenshot,
+        tradesnap_url,
+        btcusdt_snapshot,
+        snapshot_15m,
+        snapshot_1h,
+        snapshot_4h,
+        snapshot_1d,
+    )
+    .context("Failed to initialize NotionWriter")?;
 
     let (tx, mut rx) = mpsc::unbounded_channel();
 

@@ -5,6 +5,12 @@
 
 ## [Unreleased]
 ### Added
+- 支持对接 TradeSnap 截图服务，自动抓取新交易对应的 TradingView 图表快照。
+- 新增 `ENABLE_SCREENSHOT` 与 `TRADESNAP_URL` 配置，控制截图的开关和请求地址。
+- 新增 `BTCUSDT_SNAPSHOT` 配置，控制使用 `BINANCE:{coin}USDT.P` 还是 `BINANCE:{coin}USDC.P` 格式生成图表截图。
+- 新增 `SYMBOL_15M_SNAPSHOT`、`SYMBOL_1H_SNAPSHOT`、`SYMBOL_4H_SNAPSHOT`、`SYMBOL_1D_SNAPSHOT` 四个独立的开关配置，精细控制所要插入截图的时间周期。
+- 新建页面时，按配置周期顺序在 Notion 页面正文内自动追加文字标题（`SYMBOL_{timeframe} Snapshot`）、截图图片以及空白行间距。
+- 添加 `serde` 依赖库（并开启 `derive` feature）以支持接口响应的反序列化。
 - 支持根据 `crossed` 属性自动映射 `Order Type` 类型（`MARKET` / `LIMIT`）写入 Notion 数据库。
 - 实现 `NotionWriter` 模块，支持将格式化交易记录批量写入 Notion 数据库。
 - 实现 `HyperliquidMonitor` 针对同一订单（`oid`）在 500 毫秒内的多成交 tick 聚合功能，防止拆单造成多笔重复写入。

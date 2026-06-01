@@ -4,8 +4,6 @@ services:
     container_name: nosync
     env_file:
       - .env
-    volumes:
-      - ./data:/app/data
     networks:
       - cycle
     restart: unless-stopped

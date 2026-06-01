@@ -1,7 +1,10 @@
 use crate::structs::NotionRowData;
 use chrono::{TimeZone, Utc};
 use notion_client::endpoints::Client as NotionClient;
+use notion_client::endpoints::blocks::append::request::AppendBlockChildrenRequest;
 use notion_client::endpoints::pages::create::request::CreateAPageRequestBuilder;
+use notion_client::objects::block::{Block, BlockType, ImageValue, ParagraphValue};
+use notion_client::objects::file::{ExternalFile, File};
 use notion_client::objects::page::{DatePropertyValue, PageProperty, SelectPropertyValue};
 use notion_client::objects::parent::Parent;
 use notion_client::objects::property::DateOrDateTime;
@@ -10,7 +13,7 @@ use reqwest::ClientBuilder;
 use serde_json::Number;
 use std::collections::BTreeMap;
 use thiserror::Error;
-use tracing::info;
+use tracing::{error, info};
 
 /// Errors specific to the NotionWriter.
 #[derive(Error, Debug)]
@@ -25,16 +28,41 @@ pub enum NotionWriterError {
 pub struct NotionWriter {
     client: NotionClient,
     database_id: String,
+    enable_screenshot: bool,
+    tradesnap_url: Option<String>,
+    btcusdt_snapshot: bool,
+    snapshot_15m: bool,
+    snapshot_1h: bool,
+    snapshot_4h: bool,
+    snapshot_1d: bool,
 }
 
 impl NotionWriter {
     /// Creates a new NotionWriter instance.
-    pub fn new(token: String, database_id: String) -> Result<Self, NotionWriterError> {
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        token: String,
+        database_id: String,
+        enable_screenshot: bool,
+        tradesnap_url: Option<String>,
+        btcusdt_snapshot: bool,
+        snapshot_15m: bool,
+        snapshot_1h: bool,
+        snapshot_4h: bool,
+        snapshot_1d: bool,
+    ) -> Result<Self, NotionWriterError> {
         let client = NotionClient::new(token, Some(ClientBuilder::new()))
             .map_err(|e| NotionWriterError::ClientError(format!("{:?}", e)))?;
         Ok(Self {
             client,
             database_id,
+            enable_screenshot,
+            tradesnap_url,
+            btcusdt_snapshot,
+            snapshot_15m,
+            snapshot_1h,
+            snapshot_4h,
+            snapshot_1d,
         })
     }
 
@@ -55,7 +83,7 @@ impl NotionWriter {
                 id: None,
                 title: vec![RichText::Text {
                     text: Text {
-                        content: data.symbol,
+                        content: data.symbol.clone(),
                         link: None,
                     },
                     annotations: None,
@@ -187,6 +215,165 @@ impl NotionWriter {
 
         let page = self.client.pages.create_a_page(request).await?;
         info!(page_id = %page.id, "Successfully wrote row to Notion Database");
+
+        if let (true, Some(url)) = (self.enable_screenshot, &self.tradesnap_url) {
+            let coin = if data.symbol.ends_with("USDC") {
+                data.symbol.trim_end_matches("USDC").to_string()
+            } else if data.symbol.ends_with("USDT") {
+                data.symbol.trim_end_matches("USDT").to_string()
+            } else {
+                data.symbol.clone()
+            };
+
+            let ticker = if self.btcusdt_snapshot {
+                format!("BINANCE:{}USDT.P", coin.to_uppercase())
+            } else {
+                format!("BINANCE:{}USDC.P", coin.to_uppercase())
+            };
+            let tradesnap_url = url.trim_end_matches('/');
+            let http_client = reqwest::Client::new();
+            let mut children = Vec::new();
+
+            let mut timeframes = Vec::new();
+            if self.snapshot_15m {
+                timeframes.push("15m");
+            }
+            if self.snapshot_1h {
+                timeframes.push("1h");
+            }
+            if self.snapshot_4h {
+                timeframes.push("4h");
+            }
+            if self.snapshot_1d {
+                timeframes.push("1D");
+            }
+
+            for timeframe in &timeframes {
+                let request_url = format!(
+                    "{}/chart?ticker={}&interval={}",
+                    tradesnap_url, ticker, timeframe
+                );
+
+                info!(
+                    symbol = %data.symbol,
+                    ticker = %ticker,
+                    timeframe = %timeframe,
+                    request_url = %request_url,
+                    "Requesting screenshot from TradeSnap..."
+                );
+
+                match http_client.get(&request_url).send().await {
+                    Ok(response) => {
+                        if response.status().is_success() {
+                            #[derive(serde::Deserialize)]
+                            struct TradeSnapResponse {
+                                png_url: String,
+                            }
+                            match response.json::<TradeSnapResponse>().await {
+                                Ok(json_res) => {
+                                    let png_url = json_res.png_url;
+                                    info!(
+                                        symbol = %data.symbol,
+                                        timeframe = %timeframe,
+                                        png_url = %png_url,
+                                        "Successfully got screenshot URL from TradeSnap."
+                                    );
+
+                                    let text_block = Block {
+                                        block_type: BlockType::Paragraph {
+                                            paragraph: ParagraphValue {
+                                                rich_text: vec![RichText::Text {
+                                                    text: Text {
+                                                        content: format!(
+                                                            "{}_{} Snapshot",
+                                                            data.symbol, timeframe
+                                                        ),
+                                                        link: None,
+                                                    },
+                                                    annotations: None,
+                                                    plain_text: None,
+                                                    href: None,
+                                                }],
+                                                color: None,
+                                                children: None,
+                                            },
+                                        },
+                                        ..Default::default()
+                                    };
+
+                                    let image_block = Block {
+                                        block_type: BlockType::Image {
+                                            image: ImageValue {
+                                                file_type: File::External {
+                                                    external: ExternalFile { url: png_url },
+                                                },
+                                            },
+                                        },
+                                        ..Default::default()
+                                    };
+
+                                    let empty_block = Block {
+                                        block_type: BlockType::Paragraph {
+                                            paragraph: ParagraphValue {
+                                                rich_text: vec![],
+                                                color: None,
+                                                children: None,
+                                            },
+                                        },
+                                        ..Default::default()
+                                    };
+
+                                    children.push(text_block);
+                                    children.push(image_block);
+                                    children.push(empty_block);
+                                }
+                                Err(err) => {
+                                    error!(
+                                        "Failed to deserialize TradeSnap response for {}: {:?}",
+                                        timeframe, err
+                                    );
+                                }
+                            }
+                        } else {
+                            error!(
+                                "TradeSnap returned error status for {}: {:?}",
+                                timeframe,
+                                response.status()
+                            );
+                        }
+                    }
+                    Err(err) => {
+                        error!("Failed to request TradeSnap for {}: {:?}", timeframe, err);
+                    }
+                }
+            }
+
+            if !children.is_empty() {
+                info!(
+                    page_id = %page.id,
+                    block_count = children.len(),
+                    "Appending all screenshot blocks to Notion page..."
+                );
+                let append_request = AppendBlockChildrenRequest {
+                    children,
+                    position: None,
+                };
+                if let Err(err) = self
+                    .client
+                    .blocks
+                    .append_block_children(&page.id, append_request)
+                    .await
+                {
+                    error!("Failed to append blocks to Notion page: {:?}", err);
+                } else {
+                    info!(
+                        "Successfully appended all screenshot blocks to Notion page {}",
+                        page.id
+                    );
+                }
+            }
+        }
+
         Ok(())
     }
 }
