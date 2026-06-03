@@ -24,6 +24,6 @@ RUN apt-get update && apt-get install -y ca-certificates openssl && rm -rf /var/
 WORKDIR /app
 
 # Copy the built binary
-COPY --from=builder /app/target/release/nosync /app/nosync
+COPY --from=builder /app/target/release/tradesync /app/tradesync
 
-CMD ["/app/nosync"]
+CMD ["/app/tradesync"]
