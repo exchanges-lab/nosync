@@ -47,7 +47,7 @@ impl HyperliquidMonitor {
 
         loop {
             info!("Connecting to Hyperliquid InfoClient...");
-            let mut info_client = match InfoClient::new(None, Some(base_url)).await {
+            let mut info_client = match InfoClient::with_reconnect(None, Some(base_url)).await {
                 Ok(client) => client,
                 Err(e) => {
                     error!(
@@ -173,6 +173,18 @@ impl HyperliquidMonitor {
                             }
                             Some(Message::Pong) => {
                                 debug!("Received Pong from Hyperliquid WS");
+                            }
+                            Some(Message::NoData) => {
+                                // Server idle-disconnect or dropped connection. Because the
+                                // client is created with InfoClient::with_reconnect, the SDK
+                                // auto-reconnects (~1s) and resubscribes UserEvents on the same
+                                // channel, so we keep reading instead of tearing down here.
+                                // NOTE: a short application-level recv() timeout was intentionally
+                                // NOT added: the SDK does not forward Pong frames to the
+                                // subscription channel, so a quiet market (no fills) is
+                                // indistinguishable from a dead connection and any finite timeout
+                                // would cause spurious reconnects and missed-fill blind windows.
+                                warn!("Hyperliquid WS disconnected; SDK is auto-reconnecting...");
                             }
                             Some(other) => {
                                 debug!(msg = ?other, "Received other message from Hyperliquid WS");

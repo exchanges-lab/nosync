@@ -231,7 +231,10 @@ impl NotionWriter {
                 format!("BINANCE:{}USDC.P", coin.to_uppercase())
             };
             let tradesnap_url = url.trim_end_matches('/');
-            let http_client = reqwest::Client::new();
+            let http_client = reqwest::Client::builder()
+                .timeout(std::time::Duration::from_secs(15))
+                .build()
+                .unwrap_or_else(|_| reqwest::Client::new());
             let mut children = Vec::new();
 
             let mut timeframes = Vec::new();
